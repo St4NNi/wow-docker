@@ -9,7 +9,7 @@ ARG VKD3D_VERSION=3.1
 ARG VKD3D_SHA256=b85ea8219b71093a3924913dd7aae6172333dc0c069983ed510816d67f02120b
 # The host supplies the kernel and optional ntsync device.
 RUN printf 'Server = https://archive.archlinux.org/repos/%s/$repo/os/$arch\n' "$ARCH_DATE" > /etc/pacman.d/mirrorlist \
-    && pacman -Syu --noconfirm --needed --assume-installed ntsync-autoload wine-staging curl cabextract unzip gnutls \
+    && pacman -Syu --noconfirm --needed --assume-installed ntsync-autoload wine-staging glibc-locales curl cabextract unzip gnutls \
        libpulse alsa-plugins vulkan-icd-loader vulkan-tools mesa vulkan-radeon \
        vulkan-intel ttf-dejavu ttf-liberation dbus \
     && test "$(pacman -Q wine-staging)" = "wine-staging $WINE_VERSION" \
@@ -44,10 +44,17 @@ apk add --no-cache patch
 patch -p1 <<'PATCH'
 --- a/cmd/install.go
 +++ b/cmd/install.go
-@@ -68 +68,2 @@
+@@ -6,0 +7 @@
++	"strings"
+@@ -65,0 +67,4 @@
++	language := strings.ReplaceAll(os.Getenv("WOW_DOCKER_LANGUAGE"), "-", "")
++	if language == "" {
++		language = "enUS"
++	}
+@@ -68 +73,2 @@
 -	}, log, env.BattleNetArgsForDisplay(driver)...)
 +	}, log, append(env.BattleNetArgsForDisplay(driver),
-+		"--lang=enUS", `--installpath=C:\Program Files (x86)\Battle.net`)...)
++		"--lang="+language, `--installpath=C:\Program Files (x86)\Battle.net`)...)
 --- a/cmd/launch.go
 +++ b/cmd/launch.go
 @@ -50,0 +51,6 @@
@@ -66,8 +73,43 @@ patch -p1 <<'PATCH'
 @@ -81,0 +85,2 @@
 +			"--disable-gpu",
 +			"--disable-gpu-compositing",
+--- a/internal/adapters/wine/runtime.go
++++ b/internal/adapters/wine/runtime.go
+@@ -196,0 +197,9 @@
++	if language := os.Getenv("WOW_DOCKER_LANGUAGE"); language != "" {
++		cmd := exec.Command(rt.WineBin, "reg", "add",
++			`HKCU\Control Panel\Desktop`, "/v", "PreferredUILanguages",
++			"/t", "REG_MULTI_SZ", "/d", language, "/f")
++		cmd.Env = envMapToSlice(env)
++		if out, err := cmd.CombinedOutput(); err != nil {
++			return fmt.Errorf("set Wine UI language: %w (%s)", err, strings.TrimSpace(string(out)))
++		}
++	}
+--- a/internal/adapters/wine/runtime_test.go
++++ b/internal/adapters/wine/runtime_test.go
+@@ -32,0 +33 @@
++	t.Setenv("WOW_DOCKER_LANGUAGE", "en-US")
+@@ -67,0 +69,4 @@
++	}
++	language := `ARGS=reg add HKCU\Control Panel\Desktop /v PreferredUILanguages /t REG_MULTI_SZ /d en-US /f`
++	if !strings.Contains(string(got), language) {
++		t.Fatalf("Wine UI language was not configured: %s", got)
+--- a/internal/services/config.go
++++ b/internal/services/config.go
+@@ -5,0 +6,2 @@
++	"os"
++	"strings"
+@@ -68,0 +71,7 @@
++	if language := os.Getenv("WOW_DOCKER_LANGUAGE"); language != "" {
++		if account, ok := merged["5a61123b37cafce1"].(map[string]any); ok {
++			if client, ok := account["Client"].(map[string]any); ok {
++				client["Language"] = strings.ReplaceAll(language, "-", "")
++			}
++		}
++	}
 PATCH
-gofmt -w cmd/install.go cmd/launch.go internal/adapters/env/gpu.go
+gofmt -w cmd/install.go cmd/launch.go internal/adapters/env/gpu.go internal/adapters/wine/runtime.go internal/adapters/wine/runtime_test.go internal/services/config.go
+CGO_ENABLED=0 GOMAXPROCS=2 go test -p 2 -run '^TestDisableSystrayWritesExplorerRegistryKey$' ./internal/adapters/wine
 CGO_ENABLED=0 GOMAXPROCS=2 go build -p 2 -trimpath -ldflags="-s -w -X github.com/bnema/bnetctl/cmd.commit=$BNETCTL_COMMIT" -o /bnetctl .
 BUILD
 

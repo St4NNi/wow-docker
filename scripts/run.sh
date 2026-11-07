@@ -48,7 +48,10 @@ arguments=(run --rm --init --pull never
     --shm-size 1g --tmpfs "/tmp:rw,mode=1777,size=2g"
     --tmpfs "$container_runtime:rw,mode=700,uid=$container_uid,gid=$container_gid,size=16m"
     --env "XDG_RUNTIME_DIR=$container_runtime"
-    --env "WINE_DISPLAY_DRIVER=$display_driver")
+    --env "WINE_DISPLAY_DRIVER=$display_driver"
+    --env "LANG=${WOW_DOCKER_LOCALE:-${LANG:-en_US.UTF-8}}"
+    --env "LC_ALL=${WOW_DOCKER_LOCALE:-${LANG:-en_US.UTF-8}}"
+    --env "WOW_DOCKER_LANGUAGE=${WOW_DOCKER_LANGUAGE:-}")
 
 bind_path() {
     local source=${1//\"/\"\"}
@@ -146,7 +149,7 @@ bind_path "$runtime_dir/pulse/native" "$container_runtime/pulse/native" readonly
 if [[ -e /dev/ntsync ]]; then
     arguments+=(--device /dev/ntsync)
 fi
-for variable in WINEDEBUG DXVK_HUD DXVK_LOG_LEVEL VKD3D_DEBUG MESA_VK_WSI_DEBUG LANG TZ; do
+for variable in WINEDEBUG DXVK_HUD DXVK_LOG_LEVEL VKD3D_DEBUG MESA_VK_WSI_DEBUG TZ; do
     if [[ -v "$variable" ]]; then
         arguments+=(--env "$variable=${!variable}")
     fi

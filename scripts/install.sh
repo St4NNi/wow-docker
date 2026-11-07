@@ -19,6 +19,8 @@ Usage: ./scripts/install.sh [options]
   --image NAME           Local Docker image
   --display DRIVER       auto, wayland or x11
   --gpu DRIVER           auto, nvidia, amd, intel or mesa
+  --locale LOCALE        Wine input locale (for example de_DE.UTF-8)
+  --language TAG         Interface language (for example en-US)
   --memory LIMIT         Container memory limit
   --cpus COUNT           Container CPU limit
   --no-desktop           Install only the command and settings
@@ -39,6 +41,8 @@ while (( $# )); do
         --image) options[WOW_DOCKER_IMAGE]=${2:?Missing image}; shift 2 ;;
         --display) options[WOW_DOCKER_DISPLAY]=${2:?Missing display driver}; shift 2 ;;
         --gpu) options[WOW_DOCKER_GPU]=${2:?Missing GPU driver}; shift 2 ;;
+        --locale) options[WOW_DOCKER_LOCALE]=${2:?Missing locale}; shift 2 ;;
+        --language) options[WOW_DOCKER_LANGUAGE]=${2:?Missing language}; shift 2 ;;
         --memory) options[WOW_DOCKER_MEMORY]=${2:?Missing memory limit}; shift 2 ;;
         --cpus) options[WOW_DOCKER_CPUS]=${2:?Missing CPU limit}; shift 2 ;;
         *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -101,12 +105,14 @@ declare -A settings=(
     [WOW_DOCKER_IMAGE]=wow-docker:local
     [WOW_DOCKER_DISPLAY]=auto
     [WOW_DOCKER_GPU]=auto
+    [WOW_DOCKER_LOCALE]="${LANG:-en_US.UTF-8}"
+    [WOW_DOCKER_LANGUAGE]=''
     [WOW_DOCKER_MEMORY]=12g
     [WOW_DOCKER_CPUS]=''
     [WOW_DOCKER_CONTAINER]=''
 )
 variables=(WOW_DOCKER_DATA_DIR WOW_DOCKER_IMAGE WOW_DOCKER_DISPLAY WOW_DOCKER_GPU
-    WOW_DOCKER_MEMORY WOW_DOCKER_CPUS WOW_DOCKER_CONTAINER)
+    WOW_DOCKER_LOCALE WOW_DOCKER_LANGUAGE WOW_DOCKER_MEMORY WOW_DOCKER_CPUS WOW_DOCKER_CONTAINER)
 for variable in "${variables[@]}"; do
     settings[$variable]=${!variable:-${settings[$variable]}}
     if [[ -n ${options[$variable]+set} ]]; then

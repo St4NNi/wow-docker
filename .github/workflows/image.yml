@@ -24,6 +24,7 @@ env:
     cpu-quota=400000
   TEST_SCRIPT: |
     set -euo pipefail
+    LC_ALL=de_DE.UTF-8 locale charmap | grep -Fx UTF-8
     wine --version
     wine "C:\\windows\\system32\\cmd.exe" /c ver
     wine "C:\\windows\\syswow64\\cmd.exe" /c ver
@@ -33,6 +34,9 @@ env:
     test -s /usr/share/licenses/bnetctl/LICENSE
     test -s /usr/share/licenses/wow-docker/LICENSE
     battlenet.sh --help >/dev/null
+    LANG=de_DE.UTF-8 LC_ALL=de_DE.UTF-8 WOW_DOCKER_LANGUAGE=en-US \
+      entrypoint.sh wine reg query 'HKCU\Control Panel\Desktop' /v PreferredUILanguages | grep -F en-US
+    wineserver -w
 
 jobs:
   check:
