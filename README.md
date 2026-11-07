@@ -113,6 +113,15 @@ On SELinux Docker hosts, labeling is disabled for this container to permit the d
 `./run shell` opens a container shell. `./run wine winecfg` opens Wine configuration.
 Wine and graphics debug variables can be passed through the environment.
 
+For visible launch diagnostics, run this in a terminal:
+
+```sh
+wow-docker battlenet launch --verbose
+```
+
+The application-menu entry does not open a terminal. Native Wayland uses software compositing for
+Battle.net's Chromium UI as a compatibility mode. Games keep their GPU rendering.
+
 ## Structure
 
 - `Containerfile`: pinned Arch snapshot, Wine, DXVK and VKD3D-Proton.

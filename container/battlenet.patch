@@ -19,3 +19,6 @@
 +		if _, err := os.Stat(filepath.Join("/dev/dri", entry.Name())); err != nil {
 +			continue
 +		}
+@@ -81,0 +85,2 @@
++			"--disable-gpu",
++			"--disable-gpu-compositing",
