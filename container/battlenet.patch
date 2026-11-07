@@ -13,3 +13,9 @@
 +			return err
 +		}
 +	}
+--- a/internal/adapters/env/gpu.go
++++ b/internal/adapters/env/gpu.go
+@@ -38,0 +39,3 @@
++		if _, err := os.Stat(filepath.Join("/dev/dri", entry.Name())); err != nil {
++			continue
++		}

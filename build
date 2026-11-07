@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+config_file=${WOW_DOCKER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/wow-docker/config}
+if [[ -f "$config_file" ]]; then
+    # shellcheck source=/dev/null
+    source "$config_file"
+fi
+
 project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 image=${WOW_DOCKER_IMAGE:-wow-docker:local}
+if [[ "$(docker info --format '{{.MemoryLimit}} {{.CPUCfsQuota}}')" != 'true true' ]]; then
+    printf 'Docker memory and CPU limits are required to build the image.\n' >&2
+    exit 1
+fi
 builder="wow-docker-$UID-$$"
 cleanup() {
     docker buildx rm "$builder" >/dev/null
