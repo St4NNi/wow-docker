@@ -9,8 +9,7 @@ if (( $# == 0 )); then
 fi
 case "$1" in
     install|launch)
-        bnetctl "$@" --display-driver "${WINE_DISPLAY_DRIVER:-wayland}"
-        WINEPREFIX="$XDG_DATA_HOME/bnetctl/prefix/pfx" wineserver -w
+        exec bnetctl "$@" --display-driver "${WINE_DISPLAY_DRIVER:-wayland}"
         ;;
     *) exec bnetctl "$@" ;;
 esac
