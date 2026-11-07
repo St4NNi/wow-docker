@@ -75,8 +75,8 @@ if [[ "$gpu" == auto ]]; then
 fi
 case "$gpu" in
     nvidia)
-        cdi_dirs=$(docker info --format '{{json .CDISpecDirs}}' 2>/dev/null || true)
-        if [[ "$cdi_dirs" == \[* && "$cdi_dirs" != '[]' ]]; then
+        cdi_devices=$(docker info --format '{{range .DiscoveredDevices}}{{println .ID}}{{end}}' 2>/dev/null || true)
+        if [[ $'\n'"$cdi_devices"$'\n' == *$'\nnvidia.com/gpu=all\n'* ]]; then
             arguments+=(--device nvidia.com/gpu=all)
         else
             arguments+=(--gpus all --env "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display")

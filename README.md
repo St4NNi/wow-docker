@@ -9,7 +9,7 @@ Wine stays inside the image. Game files and settings stay in a separate director
   Buildx and working memory/CPU controls are needed when building a missing image.
 - A working Wayland desktop, or X11 with an authority file.
 - Desktop audio through PulseAudio or PipeWire's PulseAudio socket.
-- NVIDIA: install and configure NVIDIA Container Toolkit. The launcher uses native CDI when enabled,
+- NVIDIA: install and configure NVIDIA Container Toolkit. The launcher uses native CDI when NVIDIA devices are discovered,
   and otherwise uses the NVIDIA runtime through `--gpus all`.
 - AMD or Intel: working host graphics drivers and access to `/dev/dri`.
 
