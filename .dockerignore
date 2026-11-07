@@ -1,0 +1,6 @@
+**
+!Containerfile
+!container/
+!container/entrypoint
+!profiles/
+!profiles/battlenet

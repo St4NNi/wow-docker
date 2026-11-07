@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Battle.net uses Chromium and does not need Wine Mono or Gecko.
+export WINEDLLOVERRIDES="mscoree,mshtml=;${WINEDLLOVERRIDES:-}"
+
+if (( $# == 0 )); then
+    set -- launch
+fi
+case "$1" in
+    install|launch)
+        bnetctl "$@" --display-driver "${WINE_DISPLAY_DRIVER:-wayland}"
+        WINEPREFIX="$XDG_DATA_HOME/bnetctl/prefix/pfx" wineserver -w
+        ;;
+    *) exec bnetctl "$@" ;;
+esac

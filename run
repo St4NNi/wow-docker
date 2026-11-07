@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+image=${WOW_DOCKER_IMAGE:-wow-docker:local}
+state_dir=${WOW_DOCKER_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/wow-docker}
+host_uid=$(id -u)
+host_gid=$(id -g)
+runtime_dir=${XDG_RUNTIME_DIR:-/run/user/$host_uid}
+container_runtime="/run/user/$host_uid"
+display_driver=${WOW_DOCKER_DISPLAY:-wayland}
+cpu_limit=$(nproc)
+(( cpu_limit <= 8 )) || cpu_limit=8
+
+mkdir -p "$state_dir"
+state_dir=$(cd -- "$state_dir" && pwd)
+exec 9>"$state_dir/session.lock"
+flock -n 9 || { printf 'This data directory already has a running session.\n' >&2; exit 1; }
+
+arguments=(run --rm --init --pull never
+    --name "${WOW_DOCKER_CONTAINER:-wow-docker-$host_uid}"
+    --user "$host_uid:$host_gid" --cap-drop ALL --security-opt no-new-privileges
+    --read-only --memory "${WOW_DOCKER_MEMORY:-12g}" --cpus "${WOW_DOCKER_CPUS:-$cpu_limit}"
+    --shm-size 1g --tmpfs "/tmp:rw,mode=1777,size=2g"
+    --tmpfs "$container_runtime:rw,mode=700,uid=$host_uid,gid=$host_gid,size=16m"
+    --mount "type=bind,source=$state_dir,target=/home/player"
+    --env "XDG_RUNTIME_DIR=$container_runtime"
+    --env "WINE_DISPLAY_DRIVER=$display_driver")
+
+gpu=${WOW_DOCKER_GPU:-auto}
+if [[ "$gpu" == auto ]]; then
+    if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then
+        gpu=nvidia
+    else
+        gpu=mesa
+    fi
+fi
+case "$gpu" in
+    nvidia)
+        arguments+=(--device nvidia.com/gpu=all
+            --env __NV_PRIME_RENDER_OFFLOAD=1 --env __GLX_VENDOR_LIBRARY_NAME=nvidia
+            --env __VK_LAYER_NV_optimus=NVIDIA_only)
+        ;;
+    mesa)
+        arguments+=(--device /dev/dri)
+        for device in /dev/dri/renderD*; do
+            [[ -e "$device" ]] || continue
+            arguments+=(--group-add "$(stat -c %g "$device")")
+        done
+        ;;
+    *) printf 'Use WOW_DOCKER_GPU=nvidia, mesa or auto.\n' >&2; exit 1 ;;
+esac
+
+case "$display_driver" in
+    wayland)
+        wayland_socket=${WAYLAND_DISPLAY:-wayland-0}
+        [[ "$wayland_socket" == /* ]] || wayland_socket="$runtime_dir/$wayland_socket"
+        [[ -S "$wayland_socket" ]] || { printf 'Wayland socket is unavailable.\n' >&2; exit 1; }
+        arguments+=(--env WAYLAND_DISPLAY=wayland-0
+            --mount "type=bind,source=$wayland_socket,target=$container_runtime/wayland-0,readonly")
+        ;;
+    x11)
+        : "${DISPLAY:?X11 requires DISPLAY}"
+        authority=${XAUTHORITY:-$HOME/.Xauthority}
+        [[ -f "$authority" ]] || { printf 'X11 authority file is unavailable.\n' >&2; exit 1; }
+        display_number=${DISPLAY##*:}
+        display_number=${display_number%%.*}
+        arguments+=(--env "DISPLAY=$DISPLAY" --env XAUTHORITY=/run/xauthority
+            --hostname "$(uname -n)"
+            --mount "type=bind,source=$authority,target=/run/xauthority,readonly"
+            --mount "type=bind,source=/tmp/.X11-unix/X$display_number,target=/tmp/.X11-unix/X$display_number,readonly")
+        ;;
+    *) printf 'Use WOW_DOCKER_DISPLAY=wayland or x11.\n' >&2; exit 1 ;;
+esac
+
+[[ -S "$runtime_dir/pulse/native" ]] || { printf 'Desktop audio socket is unavailable.\n' >&2; exit 1; }
+arguments+=(--env "PULSE_SERVER=unix:$container_runtime/pulse/native"
+    --mount "type=bind,source=$runtime_dir/pulse/native,target=$container_runtime/pulse/native,readonly")
+if [[ -e /dev/ntsync ]]; then
+    arguments+=(--device /dev/ntsync)
+fi
+for variable in WINEDEBUG DXVK_HUD DXVK_LOG_LEVEL VKD3D_DEBUG LANG TZ; do
+    if [[ -v "$variable" ]]; then
+        arguments+=(--env "$variable")
+    fi
+done
+if [[ -t 0 && -t 1 ]]; then
+    arguments+=(-it)
+fi
+if (( $# == 0 )); then
+    set -- battlenet launch
+elif [[ "$1" == shell ]]; then
+    shift
+    set -- bash "$@"
+fi
+docker "${arguments[@]}" "$image" "$@"
