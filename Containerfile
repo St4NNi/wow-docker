@@ -25,6 +25,7 @@ ENV HOME=/home/player \
     XDG_DATA_HOME=/home/player/.local/share \
     XDG_CACHE_HOME=/home/player/.cache \
     WINEPREFIX=/home/player/prefix
+COPY LICENSE /usr/share/licenses/wow-docker/LICENSE
 COPY --chmod=755 container/entrypoint /usr/local/bin/container-entrypoint
 USER 1000:1000
 WORKDIR /home/player

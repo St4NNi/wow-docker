@@ -62,6 +62,21 @@ Changing the data path selects a different Wine environment; the installer does 
 Only launchers and menu entries created by this installer are replaced on later installs.
 A custom applications directory must be in your desktop's application search path.
 
+## Use a prebuilt image
+
+The GitHub workflow publishes the image as `ghcr.io/<owner>/<repository>`, the lowercase GitHub repository path.
+Replace `<owner>` and `<repository>` with the GitHub repository path.
+Pull it first, then install with that image name. The installer then skips the local build:
+
+```sh
+docker pull 'ghcr.io/<owner>/<repository>:latest'
+./install --image 'ghcr.io/<owner>/<repository>:latest'
+```
+
+For an existing installation, set `WOW_DOCKER_IMAGE` in the settings file instead.
+The launcher never pulls images, so run `docker pull` again to update.
+A private package needs `docker login ghcr.io` before the pull.
+
 ## Install and play
 
 ```sh
@@ -133,6 +148,7 @@ Battle.net's Chromium UI as a compatibility mode. Games keep their GPU rendering
 - `install`: user-local command, settings and desktop entry installation.
 - `build`: resource-limited local image build.
 - `run`: host GPU, display, audio and storage connections.
+- `.github/workflows/image.yml`: script checks, image build, image test and publishing.
 
 Change versions through Containerfile build arguments, for example `./build --build-arg ARCH_DATE=YYYY/MM/DD`.
 Keep the Wine version, archive date and graphics component versions consistent.
@@ -144,3 +160,46 @@ The X11 option grants the application access to that X server.
 
 Runtime data is excluded from the build context. Never add Battle.net account data or game files to Git.
 The image contains the helper's license. Blizzard software is downloaded separately when you install it.
+
+## Continuous integration and publishing
+
+The workflow checks the shell scripts with ShellCheck and the workflow with actionlint.
+It then builds a `linux/amd64` image from `Containerfile` with the same 4 CPU and 4 GiB caps as `./build`.
+A headless test runs 64-bit and 32-bit Windows commands, checks the DXVK, VKD3D-Proton and helper files,
+and runs the helper's help command without network access.
+The runners have no GPU, display or audio, so `./run check` and games are not tested there.
+CI never signs in to Battle.net and never downloads Blizzard software.
+
+| Trigger | Result | Image tags |
+| --- | --- | --- |
+| Pull request | Build and test, no registry login | None |
+| Push to `main` | Build, test, publish | `latest`, `main`, `sha-<commit>` |
+| Push of a tag such as `v1.2.3` | Build, test, publish | `1.2.3`, `1.2`, `sha-<commit>` |
+| Manual run on a branch | Build, test, publish | Branch name, `sha-<commit>`, and `latest` on `main` |
+
+Publishing uses the workflow's `GITHUB_TOKEN` with `contents: read` and `packages: write`. No other secret is needed.
+The image is only pushed after its test passes. To set it up:
+
+1. Push the repository to GitHub with `main` as the default branch, and keep GitHub Actions enabled.
+2. Push to `main`, push a version tag, or start **Container image** from the Actions tab.
+3. If the package is private, make it public in its package settings to allow pulls without login.
+   If a package with that name already exists, give this repository's Actions write access to it there.
+
+The workflow has not run on GitHub yet, so remote builds and publishing are not verified.
+
+## License
+
+The project's own files (scripts, `Containerfile`, `container/`, `profiles/`, the workflow and this documentation)
+are licensed under the MIT License. See `LICENSE`.
+
+The image also contains third-party software under its own licenses. The project license does not cover it:
+
+- Wine staging from Arch Linux: LGPL-2.1-or-later.
+- [DXVK](https://github.com/doitsujin/dxvk): zlib license.
+- [VKD3D-Proton](https://github.com/HansKristian-Work/vkd3d-proton): GNU LGPL 2.1.
+- Mesa, Vulkan and the other Arch Linux packages: their own licenses, shown by `pacman -Qi` in the image.
+- [bnetctl](https://github.com/bnema/bnetctl): MIT License, shipped as `/usr/share/licenses/bnetctl/LICENSE`.
+  `container/battlenet.patch` modifies it.
+
+Battle.net and World of Warcraft are proprietary Blizzard Entertainment software under Blizzard's own terms.
+They are not part of this project or the image. This project is not affiliated with Blizzard Entertainment.
