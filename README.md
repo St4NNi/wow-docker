@@ -79,8 +79,8 @@ These commands use a published commit tag. Pull it first, then install with that
 The installer then skips the local build:
 
 ```sh
-docker pull ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
-./scripts/install.sh --image ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
+docker pull ghcr.io/st4nni/wow-docker:sha-a8e3d53eca908a4dd536a1e383c2a82a1efa875c
+./scripts/install.sh --image ghcr.io/st4nni/wow-docker:sha-a8e3d53eca908a4dd536a1e383c2a82a1efa875c
 wow-docker
 ```
 
@@ -88,7 +88,7 @@ For an existing installation, pull the image and edit the `WOW_DOCKER_IMAGE` ass
 in the settings file instead:
 
 ```sh
-WOW_DOCKER_IMAGE=ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
+WOW_DOCKER_IMAGE=ghcr.io/st4nni/wow-docker:sha-a8e3d53eca908a4dd536a1e383c2a82a1efa875c
 ```
 
 To update, pull the new commit tag and change `WOW_DOCKER_IMAGE` to match.
@@ -101,7 +101,8 @@ The launcher never pulls images.
 ```
 
 The first launch creates the Wine environment and installs Battle.net automatically.
-Setup uses English and the default install path. A progress window may appear, but no installer choices are needed.
+Setup uses English by default and the standard install path. `WOW_DOCKER_LANGUAGE` selects another language.
+A progress window may appear, but no installer choices are needed.
 Later launches reuse the installation. Battle.net account sign-in remains in the client.
 Select WoW: Forever there to install the game.
 Close Battle.net and its games before starting another session.
@@ -123,9 +124,23 @@ These environment variables can also be set when running the scripts:
 | `WOW_DOCKER_DATA_DIR` | `$XDG_DATA_HOME/wow-docker` or `~/.local/share/wow-docker` | Persistent container home |
 | `WOW_DOCKER_GPU` | `auto` | `nvidia`, `amd`, `intel` or the shared `mesa` backend |
 | `WOW_DOCKER_DISPLAY` | `auto` | Detect Wayland/X11, or force `wayland` or `x11` |
+| `WOW_DOCKER_LOCALE` | Host `LANG`, or `en_US.UTF-8` | Wine input locale and initial keyboard layout |
+| `WOW_DOCKER_LANGUAGE` | Application defaults | Wine and Battle.net interface language, such as `en-US` or `de-DE` |
 | `WOW_DOCKER_MEMORY` | `12g` | Container memory limit |
 | `WOW_DOCKER_CPUS` | Up to `8` host CPUs | Container CPU limit |
 | `WOW_DOCKER_CONTAINER` | `wow-docker-<uid>` | Name for the running container |
+
+For a German keyboard with an English interface, set these values in the settings file:
+
+```sh
+WOW_DOCKER_LOCALE=de_DE.UTF-8
+WOW_DOCKER_LANGUAGE=en-US
+```
+
+The desktop supplies the physical keyboard layout. The Wine locale supplies its initial Windows layout;
+the interface language is independent. The image includes the available UTF-8 locales.
+New installations also accept `./scripts/install.sh --locale de_DE.UTF-8 --language en-US`.
+Changes take effect on the next launch. WoW text and audio language remain per-game settings in Battle.net.
 
 Display selection uses the current session. AMD and Intel use the host DRM render devices and do not need NVIDIA tooling.
 For example, select AMD rendering with X11/XWayland:
@@ -153,6 +168,15 @@ wow-docker battlenet launch --verbose
 
 The application-menu entry does not open a terminal. Native Wayland uses software compositing for
 Battle.net's Chromium UI as a compatibility mode. Games keep their GPU rendering.
+
+On the tested NVIDIA system, Wine 11.21's native Wayland driver can leave WoW running with only a taskbar icon
+and no game window. The X11/XWayland comparison opens the game. Until that startup issue is resolved, use:
+
+```sh
+WOW_DOCKER_DISPLAY=x11 wow-docker
+```
+
+Set `WOW_DOCKER_DISPLAY=x11` in the settings file to use that mode from the applications menu too.
 
 ## Structure
 
@@ -205,8 +229,8 @@ The exact tested image is pushed after its test passes, without a second build. 
 3. If the package is private, make it public in its package settings to allow pulls without login.
    If a package with that name already exists, give this repository's Actions write access to it there.
 
-[The first GitHub Actions run](https://github.com/St4NNi/wow-docker/actions/runs/42405502428)
-built, tested and published the image shown above.
+[GitHub Actions runs](https://github.com/St4NNi/wow-docker/actions/workflows/image.yml)
+show the build, test and publishing results for each revision.
 
 ## License
 
