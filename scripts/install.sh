@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 bin_dir="$HOME/.local/bin"
 applications_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 config_file="${WOW_DOCKER_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/wow-docker/config}"
 desktop_enabled=true
+uninstall=false
 declare -A options=()
 
 usage() {
     cat <<'HELP'
-Usage: ./install [options]
+Usage: ./scripts/install.sh [options]
   --bin-dir DIR          Program directory (default: ~/.local/bin)
   --applications-dir DIR Menu entry directory (default: XDG applications)
   --config-file FILE     Settings file (default: ~/.config/wow-docker/config)
@@ -21,6 +22,7 @@ Usage: ./install [options]
   --memory LIMIT         Container memory limit
   --cpus COUNT           Container CPU limit
   --no-desktop           Install only the command and settings
+  --uninstall            Remove the command and menu entry; keep settings and data
   --help                 Show this help
 Existing settings are preserved. Edit the settings file to change them later.
 HELP
@@ -29,6 +31,7 @@ while (( $# )); do
     case "$1" in
         --help) usage; exit ;;
         --no-desktop) desktop_enabled=false; shift ;;
+        --uninstall) uninstall=true; shift ;;
         --bin-dir) bin_dir=${2:?Missing program directory}; shift 2 ;;
         --applications-dir) applications_dir=${2:?Missing menu directory}; shift 2 ;;
         --config-file) config_file=${2:?Missing settings file}; shift 2 ;;
@@ -50,11 +53,37 @@ esac
 bin_dir=$(realpath -m -- "$bin_dir")
 applications_dir=$(realpath -m -- "$applications_dir")
 config_file=$(realpath -m -- "$config_file")
-program="$bin_dir/wow-docker"
+program="$bin_dir/wow-docker.sh"
+command_alias="$bin_dir/wow-docker"
 desktop="$applications_dir/wow-docker.desktop"
-if [[ "$config_file" == "$program" || "$config_file" == "$desktop" ]]; then
+if [[ "$config_file" == "$program" || "$config_file" == "$command_alias" || "$config_file" == "$desktop" ]]; then
     printf 'Settings, program and menu paths must be different.\n' >&2
     exit 1
+fi
+targets=("$program" "$command_alias")
+[[ "$desktop_enabled" == false && "$uninstall" == false ]] || targets+=("$desktop")
+for target in "${targets[@]}"; do
+    if [[ -L "$target" && "$target" == "$command_alias" && "$(readlink -- "$target")" == wow-docker.sh ]]; then
+        continue
+    fi
+    if [[ -e "$target" || -L "$target" ]]; then
+        if [[ -L "$target" || ! -f "$target" || "$(sed -n '2p' "$target")" != '# Installed by wow-docker.' ]]; then
+            printf 'Refusing to change an unmanaged file: %s\n' "$target" >&2
+            exit 1
+        fi
+    fi
+done
+if [[ "$uninstall" == true ]]; then
+    for target in "${targets[@]}"; do
+        if [[ -e "$target" || -L "$target" ]]; then
+            rm -- "$target"
+        fi
+    done
+    if [[ -d "$applications_dir" ]] && command -v update-desktop-database >/dev/null; then
+        update-desktop-database "$applications_dir"
+    fi
+    printf 'Removed the command and menu entry. Settings, game data and Docker images were kept.\n'
+    exit
 fi
 config_exists=false
 if [[ -e "$config_file" || -L "$config_file" ]]; then
@@ -91,20 +120,10 @@ done
 settings[WOW_DOCKER_DATA_DIR]=$(realpath -m -- "${settings[WOW_DOCKER_DATA_DIR]}")
 case "${settings[WOW_DOCKER_DISPLAY]}" in auto|wayland|x11) ;; *) printf 'Display must be auto, wayland or x11.\n' >&2; exit 1 ;; esac
 case "${settings[WOW_DOCKER_GPU]}" in auto|nvidia|amd|intel|mesa) ;; *) printf 'GPU must be auto, nvidia, amd, intel or mesa.\n' >&2; exit 1 ;; esac
-targets=("$program")
-[[ "$desktop_enabled" == false ]] || targets+=("$desktop")
-for target in "${targets[@]}"; do
-    if [[ -e "$target" || -L "$target" ]]; then
-        if [[ -L "$target" || ! -f "$target" || "$(sed -n '2p' "$target")" != '# Installed by wow-docker.' ]]; then
-            printf 'Refusing to replace an unmanaged file: %s\n' "$target" >&2
-            exit 1
-        fi
-    fi
-done
 
 docker info --format '{{.ServerVersion}}' >/dev/null
 if ! docker image inspect "${settings[WOW_DOCKER_IMAGE]}" >/dev/null 2>&1; then
-    WOW_DOCKER_IMAGE="${settings[WOW_DOCKER_IMAGE]}" WOW_DOCKER_CONFIG="$config_file" "$project_dir/build"
+    WOW_DOCKER_IMAGE="${settings[WOW_DOCKER_IMAGE]}" WOW_DOCKER_CONFIG="$config_file" "$project_dir/scripts/build.sh"
 fi
 mkdir -p "$bin_dir"
 [[ "$desktop_enabled" == false ]] || mkdir -p "$applications_dir"
@@ -135,7 +154,7 @@ program_temp=$(mktemp "$bin_dir/.wow-docker.XXXXXX")
 {
     printf '#!/usr/bin/env bash\n# Installed by wow-docker.\n'
     printf 'if [[ -z %s ]]; then\n    WOW_DOCKER_CONFIG=%q\nfi\n' "\${WOW_DOCKER_CONFIG:-}" "$config_file"
-    tail -n +2 "$project_dir/run"
+    tail -n +2 "$project_dir/scripts/run.sh"
 } > "$program_temp"
 chmod 755 "$program_temp"
 
@@ -171,11 +190,17 @@ if [[ "$desktop_enabled" == true ]]; then
     chmod 644 "$desktop_temp"
 fi
 mv -- "$program_temp" "$program"
+if [[ -f "$command_alias" && ! -L "$command_alias" ]]; then
+    rm -- "$command_alias"
+fi
+if [[ ! -L "$command_alias" ]]; then
+    ln -s wow-docker.sh "$command_alias"
+fi
 if [[ "$desktop_enabled" == true ]]; then
     mv -- "$desktop_temp" "$desktop"
     if command -v update-desktop-database >/dev/null; then
         update-desktop-database "$applications_dir"
     fi
 fi
-printf 'Program: %s\nSettings: %s\nData: %s\n' "$program" "$config_file" "${settings[WOW_DOCKER_DATA_DIR]}"
+printf 'Program: %s\nCommand: %s\nSettings: %s\nData: %s\n' "$program" "$command_alias" "$config_file" "${settings[WOW_DOCKER_DATA_DIR]}"
 [[ "$desktop_enabled" == false ]] || printf 'Menu entry: %s\n' "$desktop"
