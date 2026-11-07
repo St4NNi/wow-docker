@@ -21,6 +21,7 @@ RUN mkdir -p /usr/share/dxvk /usr/share/vkd3d-proton \
     && tar -xf /opt/vkd3d.tar.zst -C /usr/share/vkd3d-proton --strip-components=1 \
     && rm /opt/dxvk.tar.gz /opt/vkd3d.tar.zst
 ENV HOME=/home/player \
+    USER=player \
     XDG_DATA_HOME=/home/player/.local/share \
     XDG_CACHE_HOME=/home/player/.cache \
     WINEPREFIX=/home/player/prefix
