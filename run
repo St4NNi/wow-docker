@@ -86,9 +86,7 @@ done
 if [[ -t 0 && -t 1 ]]; then
     arguments+=(-it)
 fi
-if (( $# == 0 )); then
-    set -- battlenet launch
-elif [[ "$1" == shell ]]; then
+if [[ "${1:-}" == shell ]]; then
     shift
     set -- bash "$@"
 fi
