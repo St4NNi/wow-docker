@@ -2,5 +2,6 @@
 !Containerfile
 !container/
 !container/entrypoint
+!container/battlenet.patch
 !profiles/
 !profiles/battlenet

@@ -29,12 +29,13 @@ The check verifies Vulkan, connection to desktop audio, and 64-bit and 32-bit Wi
 ## Install and play
 
 ```sh
-./run battlenet install
-./run battlenet launch
+./run
 ```
 
-Complete the Battle.net login yourself, then select WoW: Forever and install it.
-The default launch also works as `./run`.
+The first launch creates the Wine environment and installs Battle.net automatically.
+Setup uses English and the default install path. A progress window may appear, but no installer choices are needed.
+Later launches reuse the installation. Battle.net account sign-in remains in the client.
+Select WoW: Forever there to install the game.
 Close Battle.net and its games before starting another session.
 
 ## Configuration
@@ -67,6 +68,7 @@ Wine and graphics debug variables can be passed through the environment.
 - `container/entrypoint`: container startup and runtime checks.
 - `profiles/battlenet`: Battle.net commands through the pinned
   [bnetctl](https://github.com/bnema/bnetctl) helper.
+- `container/battlenet.patch`: unattended setup arguments and first-launch installation for the pinned helper.
 - `build`: resource-limited local image build.
 - `run`: host GPU, display, audio and storage connections.
 

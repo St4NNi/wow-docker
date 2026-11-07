@@ -36,6 +36,8 @@ ARG BNETCTL_COMMIT=c542b0efa2625f56b6e8302b193bf726a4a4b509
 ADD https://codeload.github.com/bnema/bnetctl/tar.gz/${BNETCTL_COMMIT} /source.tar.gz
 RUN mkdir /source && tar -xf /source.tar.gz -C /source --strip-components=1
 WORKDIR /source
+COPY container/battlenet.patch /battlenet.patch
+RUN apk add --no-cache patch && patch -p1 < /battlenet.patch && gofmt -w cmd/install.go cmd/launch.go
 RUN CGO_ENABLED=0 GOMAXPROCS=2 go build -p 2 -trimpath -ldflags="-s -w -X github.com/bnema/bnetctl/cmd.commit=$BNETCTL_COMMIT" -o /bnetctl .
 
 FROM wine AS battlenet

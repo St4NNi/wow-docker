@@ -1,0 +1,15 @@
+--- a/cmd/install.go
++++ b/cmd/install.go
+@@ -68 +68,2 @@
+-	}, log, env.BattleNetArgsForDisplay(driver)...)
++	}, log, append(env.BattleNetArgsForDisplay(driver),
++		"--lang=enUS", `--installpath=C:\Program Files (x86)\Battle.net`)...)
+--- a/cmd/launch.go
++++ b/cmd/launch.go
+@@ -50,0 +51,6 @@
++	if !services.IsInstalled(fs, cfg) {
++		installDisplayDriver = string(driver)
++		if err := runInstall(cmd, nil); err != nil {
++			return err
++		}
++	}
