@@ -74,18 +74,25 @@ Wine environment, Battle.net, game downloads and Docker images. It does not stop
 
 ## Use a prebuilt image
 
-The GitHub workflow publishes the image as `ghcr.io/<owner>/<repository>`, the lowercase GitHub repository path.
-Replace `<owner>` and `<repository>` with the GitHub repository path, and `1.0.0` with a published version tag.
-Pull it first, then install with that image name. The installer then skips the local build:
+The public image is available at `ghcr.io/st4nni/wow-docker` without signing in.
+These commands use a published commit tag. Pull it first, then install with that image name.
+The installer then skips the local build:
 
 ```sh
-docker pull 'ghcr.io/<owner>/<repository>:1.0.0'
-./scripts/install.sh --image 'ghcr.io/<owner>/<repository>:1.0.0'
+docker pull ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
+./scripts/install.sh --image ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
+wow-docker
 ```
 
-For an existing installation, set `WOW_DOCKER_IMAGE` in the settings file instead.
-The launcher never pulls images, so run `docker pull` again to update.
-A private package needs `docker login ghcr.io` before the pull.
+For an existing installation, pull the image and edit the `WOW_DOCKER_IMAGE` assignment
+in the settings file instead:
+
+```sh
+WOW_DOCKER_IMAGE=ghcr.io/st4nni/wow-docker:sha-2779a275743595461a9c0dd917b8ac1d632e4f64
+```
+
+To update, pull the new commit tag and change `WOW_DOCKER_IMAGE` to match.
+The launcher never pulls images.
 
 ## Install and play
 
@@ -198,7 +205,8 @@ The exact tested image is pushed after its test passes, without a second build. 
 3. If the package is private, make it public in its package settings to allow pulls without login.
    If a package with that name already exists, give this repository's Actions write access to it there.
 
-The workflow has not run on GitHub yet, so remote builds and publishing are not verified.
+[The first GitHub Actions run](https://github.com/St4NNi/wow-docker/actions/runs/42405502428)
+built, tested and published the image shown above.
 
 ## License
 
